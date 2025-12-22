@@ -1,0 +1,33 @@
+appId: com.devzm.ordersync
+productName: flow-sync
+
+asar: true
+
+# Desempacotar binários nativos é obrigatório para Prisma + Better-Sqlite3
+asarUnpack:
+  - '**/node_modules/better-sqlite3/**'
+  - '**/node_modules/.prisma/**'
+  - '**/node_modules/@prisma/**'
+  - '**/*.node'
+
+files:
+  - 'build/**'
+  - '.next/**'
+  # Exclua o cache para diminuir o tamanho
+  - '!.next/cache/**'
+  - 'prisma/**'
+  - 'package.json'
+
+  # --- CORREÇÃO AQUI ---
+  # Força a cópia explícita da pasta .prisma e @prisma
+  - from: 'node_modules/.prisma'
+    to: 'node_modules/.prisma'
+    filter: ['**/*']
+
+  - from: 'node_modules/@prisma'
+    to: 'node_modules/@prisma'
+    filter: ['**/*']
+
+  # Se precisar de outras deps nativas, adicione aqui, mas geralmente o builder pega as 'dependencies' do package.json
+
+npmRebuild: false

@@ -1,0 +1,135 @@
+datasource db {
+  provider = "sqlite"
+}
+
+generator client {
+  provider = "prisma-client-js"
+  binaryTargets = ["native"] 
+  adapter       = "better_sqlite3"
+}
+
+model User {
+  id        String     @id @default(uuid())
+  name      String
+  email     String     @unique   
+  password  String
+  saved     Boolean
+  synced    Boolean    @default(false)
+
+  groups     Group[]
+  chips      Chip[]
+  clients    Client[]
+  categories Category[]
+  products   Product[]
+  orders     Order[]
+}
+
+model Group {
+  id      String   @id @default(uuid())
+  name    String
+  saved   Boolean
+  synced  Boolean  @default(false)
+  userId  String
+
+  user    User     @relation(fields: [userId], references: [id])
+  clients Client[]
+
+  @@unique([name, userId])
+}
+
+model Chip {
+  id         String      @id @default(uuid())
+  value      Int
+  date       DateTime
+  saved      Boolean
+  synced     Boolean      @default(false)
+  userId     String
+  clientId   String
+
+  user        User         @relation(fields: [userId], references: [id])
+  client      Client       @relation(fields: [clientId], references: [id])
+}
+
+// model ClientChip {
+//   id       String  @id @default(uuid())
+//   chipId   String
+//   clientId String
+//   saved    Boolean
+//   synced   Boolean @default(false)
+
+//   chip   Chip   @relation(fields: [chipId], references: [id])
+//   client Client @relation(fields: [clientId], references: [id])
+// }
+
+model Client {
+  id         String      @id @default(uuid())
+  name       String
+  saved      Boolean
+  synced     Boolean     @default(false)
+  userId     String
+  groupId    String?
+
+  user        User         @relation(fields: [userId], references: [id])
+  group       Group?       @relation(fields: [groupId], references: [id])
+  chips       Chip[]
+  orders      Order[]
+
+  @@unique([name, userId])
+}
+
+model Category {
+  id       String    @id @default(uuid())
+  name     String
+  saved    Boolean
+  synced   Boolean   @default(false)
+  userId   String
+
+  user     User      @relation(fields: [userId], references: [id])
+  products Product[]
+}
+
+model Product {
+  id            String         @id @default(uuid())
+  name          String
+  value         Int
+  useQuantity   Boolean
+  quantity      Int            @default(0)           
+  saved         Boolean
+  synced        Boolean        @default(false)
+  userId        String
+  categoryId    String?
+
+  user          User           @relation(fields: [userId], references: [id])
+  category      Category?       @relation(fields: [categoryId], references: [id])
+  orderProducts OrderProduct[]
+}
+
+model OrderProduct {
+  id          String   @id @default(uuid())
+  orderId     String
+  productName String
+  productId   String?
+  quantity    Int
+  price       Int
+  saved       Boolean
+  synced      Boolean  @default(false)
+
+
+  product Product? @relation(fields: [productId], references: [id], onDelete: SetNull)
+  order   Order    @relation(fields: [orderId], references: [id], onDelete: Cascade)
+}
+
+model Order {
+  id           String         @id @default(uuid())
+  date         DateTime
+  clientId     String?
+  clientName   String
+  saved        Boolean
+  synced       Boolean        @default(false)
+  userId       String
+  concluded    Boolean        @default(false)
+
+  user          User           @relation(fields: [userId], references: [id])
+  client        Client?        @relation(fields: [clientId], references: [id])
+  orderProducts OrderProduct[]
+}
