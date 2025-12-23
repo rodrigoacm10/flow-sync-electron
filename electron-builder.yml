@@ -3,7 +3,7 @@ productName: flow-sync
 
 asar: true
 
-# Desempacotar binários nativos é obrigatório para Prisma + Better-Sqlite3
+# Desempacotar binários nativos (Prisma + Better-Sqlite3)
 asarUnpack:
   - '**/node_modules/better-sqlite3/**'
   - '**/node_modules/.prisma/**'
@@ -13,21 +13,44 @@ asarUnpack:
 files:
   - 'build/**'
   - '.next/**'
-  # Exclua o cache para diminuir o tamanho
   - '!.next/cache/**'
   - 'prisma/**'
   - 'package.json'
-
-  # --- CORREÇÃO AQUI ---
-  # Força a cópia explícita da pasta .prisma e @prisma
+  # Copia explicita do prisma
   - from: 'node_modules/.prisma'
     to: 'node_modules/.prisma'
     filter: ['**/*']
-
   - from: 'node_modules/@prisma'
     to: 'node_modules/@prisma'
     filter: ['**/*']
 
-  # Se precisar de outras deps nativas, adicione aqui, mas geralmente o builder pega as 'dependencies' do package.json
-
 npmRebuild: false
+
+# --- ADICIONE ESTA SEÇÃO ---
+linux:
+  # Define a categoria para evitar aquele aviso no log
+  category: Utility
+
+  # Aqui definimos o que queremos gerar
+  target:
+    - target: deb
+      arch:
+        - x64
+    - target: AppImage
+      arch:
+        - x64
+    # Se ainda quiser o snap, mantenha a linha abaixo, senão pode remover
+    - target: snap
+      arch:
+        - x64
+
+# --- ADICIONE ISSO PARA WINDOWS ---
+win:
+  target: nsis # Instalador padrão .exe
+  icon: icon.ico # Windows prefere .ico (se tiver) ou .png
+
+nsis:
+  oneClick: false # Permite o usuário escolher onde instalar
+  allowToChangeInstallationDirectory: true
+  createDesktopShortcut: true
+# ----------------------------------
