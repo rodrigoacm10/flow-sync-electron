@@ -23,6 +23,10 @@ interface CreateChip {
   clientId: string
 }
 
+interface ListChip {
+  userId: string
+}
+
 export class ChipService {
   constructor(private readonly prismaClient = prisma) {}
 
@@ -34,6 +38,15 @@ export class ChipService {
     if (!clientExist) throw new Error('Client didnt exist')
 
     return await this.prismaClient.chip.create({ data })
+  }
+
+  async list(data: ListChip) {
+    return await this.prismaClient.chip.findMany({
+      where: { userId: data.userId },
+      include: {
+        client: true,
+      },
+    })
   }
 
   async delete(chipId: string) {

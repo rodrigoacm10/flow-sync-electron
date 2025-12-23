@@ -42,14 +42,30 @@ export class CLientService {
   async find(clientId: string) {
     return await this.prismaClient.client.findUnique({
       where: { id: clientId },
-      include: { chips: true, orders: true, group: true },
+      include: {
+        chips: true,
+        orders: {
+          include: {
+            orderProducts: true,
+          },
+        },
+        group: true,
+      },
     })
   }
 
   async list(data: ListClient) {
     return await this.prismaClient.client.findMany({
       where: { userId: data.userId, groupId: data.groupId },
-      include: { chips: true, orders: true, group: true },
+      include: {
+        chips: true,
+        orders: {
+          include: {
+            orderProducts: true,
+          },
+        },
+        group: true,
+      },
     })
   }
 

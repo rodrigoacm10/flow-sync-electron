@@ -1,6 +1,11 @@
 'use client'
 
+import { CreateCategory } from '@/components/CreateCategory'
+import { CreateChip } from '@/components/CreateChip'
+import { CreateClient } from '@/components/CreateClient'
+import { CreateGroup } from '@/components/CreateGroup'
 import { CreateOrder } from '@/components/CreateOrder'
+import { CreateProduct } from '@/components/CreateProduct'
 import { OrderCard } from '@/components/OrderCard'
 import { Button } from '@/components/ui/button'
 import { useOrders } from '@/hooks/useOrders'
@@ -68,16 +73,57 @@ export default function Dashboard() {
 
   return (
     <div className="bg-gradient-to-br from-[#000000]/100 to-[#2b2b2b] h-screen text-white px-6 py-4 flex flex-col">
-      <Link href="/">Voltar</Link>
+      <div className="flex gap-4">
+        <Link href="/">Voltar</Link>-
+        <Link href="/clients">ir para clientes</Link>-
+        <Link href="/products">ir para produtos</Link>-
+        <Link href="/chips">ir para fichas</Link>-
+        <Link href="/categorys">ir para categorias</Link>-
+        <Link href="/groups">ir para grupos</Link>
+      </div>
 
-      <h1 className="font-bold text-2xl mb-3">Dashboard</h1>
+      <div className="flex justify-between">
+        <h1 className="font-bold text-2xl mb-3">Dashboard</h1>
+
+        <div className="flex gap-2 text-black bg-">
+          <CreateGroup>
+            <Button variant={'secondary'} className="cursor-pointer">
+              + GRUPO
+            </Button>
+          </CreateGroup>
+
+          <CreateClient>
+            <Button variant={'secondary'} className="cursor-pointer">
+              + CLIENTE
+            </Button>
+          </CreateClient>
+
+          <CreateChip>
+            <Button variant={'secondary'} className="cursor-pointer">
+              + FICHA
+            </Button>
+          </CreateChip>
+
+          <CreateCategory>
+            <Button variant={'secondary'} className="cursor-pointer">
+              + CATEGORIA
+            </Button>
+          </CreateCategory>
+
+          <CreateProduct>
+            <Button variant={'secondary'} className="cursor-pointer">
+              + PRODUTO
+            </Button>
+          </CreateProduct>
+        </div>
+      </div>
 
       {isLoading && <p>Carregando...</p>}
       {isError && <p>Erro ao carregar pedidos.</p>}
 
       <div className="flex flex-1 gap-4">
-        <div className="flex-1 relative overflow-scroll w-full bg-amber-200">
-          <div className="absolute bg-red-400 w-full flex flex-col gap-1 ">
+        <div className="flex-1 relative overflow-y-scroll w-full bg-gradient-to-br from-[#000000]/100 to-[#2b2b2b] rounded-xl">
+          <div className="absolut w-full flex flex-col gap-1 ">
             {ordersData.notConcluded.length ? (
               ordersData.notConcluded.map((order) => (
                 <OrderCard key={order.id} order={order} />
@@ -108,7 +154,7 @@ export default function Dashboard() {
           </div>
         </div>
 
-        <div className="min-w-[320px] bg-amber-300 rounded-xl px-6 py-3 flex flex-col">
+        <div className="min-w-[320px] bg-gradient-to-br from-[#000000]/100 to-[#2b2b2b] rounded-xl px-6 py-3 flex flex-col">
           <div className="flex-1">
             <p className="font-bold text-xl mb-3">registros</p>
 
@@ -135,7 +181,11 @@ export default function Dashboard() {
           </div>
 
           <CreateOrder>
-            <Button size="lg" className="font-bold text-lg w-full">
+            <Button
+              variant={'secondary'}
+              size="lg"
+              className="font-bold text-lg w-full cursor-pointer"
+            >
               + PEDIDO
             </Button>
           </CreateOrder>

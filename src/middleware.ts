@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server'
 import type { NextRequest } from 'next/server'
 import { verifyJwt } from '@/lib/jwt'
+
 export const dynamic = 'force-dynamic'
 
 export async function middleware(req: NextRequest) {
@@ -31,6 +32,10 @@ export async function middleware(req: NextRequest) {
 export const config = {
   matcher: [
     '/dashboard/:path*', // páginas protegidas
+    '/clients/:path*', // páginas protegidas
+    '/products/:path*', // páginas protegidas
+    '/chips/:path*', // páginas protegidas
+    '/groups/:path*', // páginas protegidas
     // '/api/:path*', // APIs protegidas
   ],
 }

@@ -3,7 +3,7 @@ import { Checkbox } from './ui/checkbox'
 import { api } from '@/lib/api'
 import { useEffect, useState } from 'react'
 import { useOrders } from '@/hooks/useOrders'
-import { OptionIcon } from 'lucide-react'
+import { MoreHorizontal, MoreVertical, OptionIcon } from 'lucide-react'
 import { OptionsOrder } from './order/OptionsOrder'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { toast } from 'sonner'
@@ -81,7 +81,9 @@ export const OrderCard = ({
           />
 
           <OptionsOrder order={order}>
-            <OptionIcon size={16} />
+            <MoreVertical className="h-5 w-5" />
+
+            {/* <OptionIcon size={16} /> */}
           </OptionsOrder>
         </div>
       </div>

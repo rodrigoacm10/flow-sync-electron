@@ -15,6 +15,7 @@ import prisma from '@/lib/prisma'
 //   category      Category       @relation(fields: [categoryId], references: [id])
 //   orderProducts OrderProduct[]
 // }
+
 export const dynamic = 'force-dynamic'
 
 interface CreateProduct {
@@ -43,6 +44,7 @@ export class ProductService {
 
   async list(data: ListProduct) {
     return await this.prismaCLient.product.findMany({
+      include: { category: true, orderProducts: true },
       where: { userId: data.userId, categoryId: data.categoryId },
     })
   }

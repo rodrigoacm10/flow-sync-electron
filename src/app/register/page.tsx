@@ -33,8 +33,6 @@ export default function RegisterPage() {
       body: JSON.stringify(data),
     })
 
-    console.log('RES ->', res)
-
     if (res.ok) {
       window.location.href = '/dashboard'
     } else {

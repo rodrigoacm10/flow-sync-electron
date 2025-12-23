@@ -1,16 +1,14 @@
 import { getUserIdFromRequest } from '@/lib/auth'
 import { CLientService } from '@/services/clientService'
 import { NextRequest, NextResponse } from 'next/server'
+
 export const dynamic = 'force-dynamic'
 
 export async function GET(req: NextRequest) {
   try {
     const userId = await getUserIdFromRequest(req)
 
-    console.log('USERID', userId)
-
     const { searchParams } = new URL(req.url)
-    console.log('SERACH APRA', searchParams)
     const groupId = searchParams.get('groupId') ?? undefined
 
     const response = await new CLientService().list({ userId, groupId })

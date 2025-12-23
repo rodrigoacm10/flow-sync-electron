@@ -15,7 +15,7 @@ import { Input } from './ui/input'
 import { SelectRegistred } from './order/SelectRegistred'
 import { Combobox } from './Combobox'
 
-import { useMemo } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { useForm, Controller, useFieldArray } from 'react-hook-form'
 import { z } from 'zod'
 import { zodResolver } from '@hookform/resolvers/zod'
@@ -24,91 +24,81 @@ import { CreateOrderSchema } from '@/schemas/orderSchema'
 import { getUniqueProduct } from '@/utils/getUniqueProduct'
 import { getTodayDate } from '@/utils/getTodayDate'
 import { getDateToISO } from '@/utils/getDateToISO'
-import { useMutation, useQueryClient } from '@tanstack/react-query'
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { toast } from 'sonner'
 import { useOrders } from '@/hooks/useOrders'
 
-const mockCLient = [
-  {
-    id: '72d461c8-7fb2-4bc6-856f-eab6950b30ed',
-    name: 'cliente-teste',
-    saved: true,
-    synced: false,
-    userId: '56bc99cd-9dbc-4465-9e72-6c72fd7ab780',
-    groupId: 'dc3b69e2-b80b-4013-8726-12032c48b96e',
-    clientChips: [
-      { chip: { value: 1000 } },
-      { chip: { value: 1000 } },
-      { chip: { value: 1000 } },
-    ],
-    orders: [],
-    group: {
-      id: 'dc3b69e2-b80b-4013-8726-12032c48b96e',
-      name: 'teste-group',
-      saved: true,
-      synced: false,
-      userId: '56bc99cd-9dbc-4465-9e72-6c72fd7ab780',
-    },
-  },
-]
+// ✅ Tipos mínimos (ajuste se seu backend retornar diferente)
+type Client = {
+  id: string
+  name: string
+  chips: Array<{ chip: { value: number } }>
+}
 
-const mockProduct = [
-  {
-    id: '71e023a8-0d1d-4ae8-90aa-c34aacdca0dd',
-    name: 'test-coxinha',
-    value: 990,
-    useQuantity: true,
-    quantity: 50,
-    saved: true,
-    synced: false,
-    userId: '56bc99cd-9dbc-4465-9e72-6c72fd7ab780',
-    categoryId: 'e37a8ac2-84a6-4ad0-96ec-44ef82387a0e',
-  },
-]
+type Product = {
+  id: string
+  name: string
+  value: number
+  useQuantity?: boolean
+  quantity?: number
+}
 
 export function CreateOrder({ children }: React.ComponentProps<'div'>) {
   const queryClient = useQueryClient()
-
   const { changeStatus } = useOrders()
 
-  const createOrder = useMutation({
-    mutationFn: async (payload: any) => {
-      await api.post('/order', payload)
-      // return data.data
+  const userTimeZone = 'America/Recife'
+
+  const DEFAULTS = {
+    date: getTodayDate(userTimeZone),
+
+    clientType: 'registred' as const,
+    clientId: null as string | null,
+    clientName: '',
+
+    productType: 'registred' as const,
+    currentProductId: null as string | null,
+    currentProductName: '',
+    currentProductPrice: 1,
+    currentProductQuantity: 1,
+
+    orderProducts: [] as any[],
+  }
+
+  const [open, setOpen] = useState(false)
+
+  // ✅ buscar clients / products (refaz quando abrir)
+  const clientsQuery = useQuery({
+    queryKey: ['clients'],
+    enabled: open, // ✅ só busca quando abrir
+    queryFn: async () => {
+      const { data } = await api.get<{ data: Client[] }>('/client')
+      return data.data
     },
-    onSuccess: async () => {
-      toast.success('Pedido criado com sucesso!')
-      //   await queryClient.invalidateQueries({ queryKey: ['orders'] })
-      queryClient.refetchQueries({ queryKey: ['orders'] }) // se você quiser forçar na hora
-      changeStatus()
-    },
-    onError: (err) => {
-      console.log('Error on delete', err)
-      toast.error('Erro ao deletar pedido')
-    },
+    staleTime: 0,
+    refetchOnMount: 'always',
+    refetchOnWindowFocus: false,
   })
 
-  const userTimeZone = 'America/Recife'
-  // ✅ use input type for RHF (what comes from the form)
-  type CreateOrderForm = z.input<typeof CreateOrderSchema>
-
-  const form = useForm<CreateOrderForm>({
-    resolver: zodResolver(CreateOrderSchema),
-    defaultValues: {
-      date: getTodayDate(userTimeZone),
-
-      clientType: 'registred',
-      clientId: null,
-      clientName: '',
-
-      productType: 'registred',
-      currentProductId: null,
-      currentProductName: '',
-      currentProductPrice: 1,
-      currentProductQuantity: 1,
-
-      orderProducts: [],
+  const productsQuery = useQuery({
+    queryKey: ['products'],
+    enabled: open, // ✅ só busca quando abrir
+    queryFn: async () => {
+      const { data } = await api.get<{ data: Product[] }>('/product')
+      return data.data
     },
+    staleTime: 0,
+    refetchOnMount: 'always',
+    refetchOnWindowFocus: false,
+  })
+
+  const clients = clientsQuery.data ?? []
+  const products = productsQuery.data ?? []
+  const isLoadingData = clientsQuery.isLoading || productsQuery.isLoading
+
+  const form = useForm<z.input<typeof CreateOrderSchema>>({
+    resolver: zodResolver(CreateOrderSchema),
+    defaultValues: DEFAULTS,
     mode: 'onSubmit',
   })
 
@@ -121,13 +111,53 @@ export function CreateOrder({ children }: React.ComponentProps<'div'>) {
     setError,
     clearErrors,
     handleSubmit,
-    formState,
+    formState: { errors },
+    reset,
   } = form
-  const { errors } = formState
 
   const { fields, append, replace } = useFieldArray({
     control,
     name: 'orderProducts',
+  })
+
+  // ✅ toda vez que abrir: refetch de tudo que você quiser
+  useEffect(() => {
+    if (!open) return
+
+    clientsQuery.refetch()
+    productsQuery.refetch()
+
+    // se quiser também forçar outras listas relacionadas:
+    // queryClient.refetchQueries({ queryKey: ['categories'] })
+    // queryClient.refetchQueries({ queryKey: ['groups'] })
+  }, [open]) // eslint-disable-line react-hooks/exhaustive-deps
+
+  // ✅ quando fechar: limpa tudo
+  useEffect(() => {
+    if (open) return
+    replace([])
+    reset(DEFAULTS)
+  }, [open, replace, reset])
+
+  const createOrder = useMutation({
+    mutationFn: async (payload: any) => {
+      await api.post('/order', payload)
+    },
+    onSuccess: async () => {
+      toast.success('Pedido criado com sucesso!')
+      queryClient.refetchQueries({ queryKey: ['orders'] })
+
+      // ✅ limpa + fecha
+      replace([])
+      reset(DEFAULTS)
+      setOpen(false)
+
+      changeStatus()
+    },
+    onError: (err) => {
+      console.log('Error on create', err)
+      toast.error('Erro ao criar pedido')
+    },
   })
 
   const clientType = watch('clientType')
@@ -139,23 +169,22 @@ export function CreateOrder({ children }: React.ComponentProps<'div'>) {
   const clientDetails = useMemo(() => {
     if (clientType !== 'registred') return null
     if (!clientId) return null
-    return mockCLient.find((c) => c.id === clientId) ?? null
-  }, [clientId, clientType])
+    return clients.find((c) => c.id === clientId) ?? null
+  }, [clientId, clientType, clients])
 
   const clientValue = useMemo(() => {
     if (!clientDetails) return null
-    return clientDetails.clientChips.reduce(
-      (acc: number, v: any) => acc + v.chip.value,
+    return (clientDetails.chips ?? []).reduce(
+      (acc: number, v: any) => acc + (v?.chip?.value ?? 0),
       0,
     )
   }, [clientDetails])
 
-  // “preview” do preço quando produto é registrado
   const registredProductDetails = useMemo(() => {
     if (productType !== 'registred') return null
     if (!currentProductId) return null
-    return mockProduct.find((p) => p.id === currentProductId) ?? null
-  }, [currentProductId, productType])
+    return products.find((p) => p.id === currentProductId) ?? null
+  }, [currentProductId, productType, products])
 
   const orderProductsUnique = useMemo(
     () => getUniqueProduct({ values: fields }),
@@ -198,7 +227,6 @@ export function CreateOrder({ children }: React.ComponentProps<'div'>) {
       const newOrderProducts = getUniqueProduct({
         values: getValues('orderProducts'),
       })
-
       setValue('orderProducts', newOrderProducts)
     }
 
@@ -227,7 +255,8 @@ export function CreateOrder({ children }: React.ComponentProps<'div'>) {
         })
         return
       }
-      const prod = mockProduct.find((p) => p.id === pid)
+
+      const prod = products.find((p) => p.id === pid)
       if (!prod) {
         setError('currentProductId', {
           type: 'manual',
@@ -286,9 +315,7 @@ export function CreateOrder({ children }: React.ComponentProps<'div'>) {
     attOrdersProducts()
   }
 
-  const onSubmit = async (data: CreateOrderForm) => {
-    console.log('SUBMIT RAW:', data)
-
+  const onSubmit = async (data: z.input<typeof CreateOrderSchema>) => {
     const result = CreateOrderSchema.safeParse(data)
     if (!result.success) {
       console.log('ZOD ERROR:', result.error.flatten())
@@ -296,11 +323,10 @@ export function CreateOrder({ children }: React.ComponentProps<'div'>) {
     }
 
     const parsed = result.data
-    console.log('SUBMIT PARSED:', parsed)
-
     const isRegClient = parsed.clientType === 'registred'
+
     const client = isRegClient
-      ? mockCLient.find((c) => c.id === parsed.clientId) ?? null
+      ? clients.find((c) => c.id === parsed.clientId) ?? null
       : null
 
     const payload = {
@@ -319,29 +345,21 @@ export function CreateOrder({ children }: React.ComponentProps<'div'>) {
       synced: false,
     }
 
-    // console.log('PAYLOAD:', payload)
-
     createOrder.mutate(payload)
-    // await api.post('/order', payload)
-    // changeStatus()
   }
 
-  // não está dando nada no console
   const onInvalid = (errs: any) => {
     console.log('FORM INVALID:', errs)
   }
 
   return (
-    <Dialog>
+    <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>{children}</DialogTrigger>
 
       <DialogContent className="sm:max-w-[425px]">
-        {' '}
         <form
           id="create-order-form"
           onSubmit={(e) => {
-            // esse console não está acontecendo
-            console.log('SUBMIT nativo disparou')
             e.preventDefault()
             handleSubmit(onSubmit, onInvalid)(e)
           }}
@@ -355,13 +373,11 @@ export function CreateOrder({ children }: React.ComponentProps<'div'>) {
 
           <div className="grid gap-4">
             <div className="grid gap-3">
-              {/* Data */}
               <Input type="date" {...register('date')} />
               {errors.date?.message && (
                 <p className="text-xs text-red-500">{errors.date.message}</p>
               )}
 
-              {/* Cliente */}
               <div className="border">tipo de cliente</div>
               <Controller
                 control={control}
@@ -385,8 +401,12 @@ export function CreateOrder({ children }: React.ComponentProps<'div'>) {
                       <Combobox
                         value={field.value ?? ''}
                         setValue={(v) => field.onChange(v || null)}
-                        values={mockCLient}
-                        placeholder="Selecionar Clinete"
+                        values={clients}
+                        placeholder={
+                          isLoadingData
+                            ? 'Carregando clientes...'
+                            : 'Selecionar Cliente'
+                        }
                         labelParam="name"
                         valueParam="id"
                       />
@@ -400,11 +420,7 @@ export function CreateOrder({ children }: React.ComponentProps<'div'>) {
 
                   {clientDetails && (
                     <p className="font-bold text-sm">
-                      Saldo do cliente:{' '}
-                      {clientDetails.clientChips.reduce(
-                        (acc: number, v: any) => acc + v.chip.value,
-                        0,
-                      )}
+                      Saldo do cliente: {clientValue ?? 0}
                     </p>
                   )}
                 </div>
@@ -422,7 +438,6 @@ export function CreateOrder({ children }: React.ComponentProps<'div'>) {
                 </div>
               )}
 
-              {/* Produto */}
               <div className="border">tipo de produto</div>
               <Controller
                 control={control}
@@ -461,8 +476,12 @@ export function CreateOrder({ children }: React.ComponentProps<'div'>) {
                       <Combobox
                         value={field.value ?? ''}
                         setValue={(v) => field.onChange(v || null)}
-                        values={mockProduct}
-                        placeholder="Selecionar Produto"
+                        values={products}
+                        placeholder={
+                          isLoadingData
+                            ? 'Carregando produtos...'
+                            : 'Selecionar Produto'
+                        }
                         labelParam="name"
                         valueParam="id"
                       />
@@ -500,7 +519,6 @@ export function CreateOrder({ children }: React.ComponentProps<'div'>) {
                 </div>
               )}
 
-              {/* Erros do “produto atual” */}
               {(errors.currentProductId?.message ||
                 errors.currentProductName?.message ||
                 errors.currentProductPrice?.message ||
@@ -525,7 +543,6 @@ export function CreateOrder({ children }: React.ComponentProps<'div'>) {
                 adicionar produto
               </Button>
 
-              {/* Lista */}
               <div className="mt-1">
                 {orderProductsUnique.length ? (
                   orderProductsUnique.map((p) => (
@@ -546,10 +563,8 @@ export function CreateOrder({ children }: React.ComponentProps<'div'>) {
 
               <div className="h-[1px] bg-black/80" />
 
-              {/* Totais */}
               <div className="flex flex-col text-sm">
                 <p className="font-bold">Total: {orderTotal}</p>
-
                 {clientType === 'registred' ? (
                   <p className="font-bold">
                     Saldo restante do cliente: {remaining ?? 0}
@@ -557,7 +572,6 @@ export function CreateOrder({ children }: React.ComponentProps<'div'>) {
                 ) : null}
               </div>
 
-              {/* (Opcional) botão limpar produtos */}
               {fields.length > 0 && (
                 <Button
                   type="button"
@@ -570,9 +584,14 @@ export function CreateOrder({ children }: React.ComponentProps<'div'>) {
             </div>
           </div>
         </form>
+
         <DialogFooter>
           <DialogClose asChild>
-            <Button variant={'outline'} type="button">
+            <Button
+              variant={'outline'}
+              type="button"
+              onClick={() => setOpen(false)}
+            >
               Cancelar
             </Button>
           </DialogClose>
@@ -580,7 +599,7 @@ export function CreateOrder({ children }: React.ComponentProps<'div'>) {
           <Button
             type="submit"
             form="create-order-form"
-            onClick={() => console.log('CLICK submit nativo')}
+            disabled={isLoadingData || createOrder.isPending}
           >
             Criar Pedido
           </Button>

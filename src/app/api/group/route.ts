@@ -1,6 +1,7 @@
 import { getUserIdFromRequest } from '@/lib/auth'
 import { GroupService } from '@/services/groupService'
 import { NextRequest, NextResponse } from 'next/server'
+
 export const dynamic = 'force-dynamic'
 
 export async function GET(req: NextRequest) {
