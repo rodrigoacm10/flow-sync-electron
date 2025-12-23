@@ -27,18 +27,19 @@ import { getDateToISO } from '@/utils/getDateToISO'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { toast } from 'sonner'
 import { useOrders } from '@/hooks/useOrders'
+import { formatBRLFromCents, parseBRLToCents } from '@/utils/moneyBRL'
 
 // ✅ Tipos mínimos (ajuste se seu backend retornar diferente)
 type Client = {
   id: string
   name: string
-  chips: Array<{ chip: { value: number } }>
+  chips: Array<{ chip: { value: number } }> // cents
 }
 
 type Product = {
   id: string
   name: string
-  value: number
+  value: number // cents
   useQuantity?: boolean
   quantity?: number
 }
@@ -59,7 +60,7 @@ export function CreateOrder({ children }: React.ComponentProps<'div'>) {
     productType: 'registred' as const,
     currentProductId: null as string | null,
     currentProductName: '',
-    currentProductPrice: 1,
+    currentProductPrice: 100, // cents (R$ 1,00) p/ avulso
     currentProductQuantity: 1,
 
     orderProducts: [] as any[],
@@ -70,7 +71,7 @@ export function CreateOrder({ children }: React.ComponentProps<'div'>) {
   // ✅ buscar clients / products (refaz quando abrir)
   const clientsQuery = useQuery({
     queryKey: ['clients'],
-    enabled: open, // ✅ só busca quando abrir
+    enabled: open,
     queryFn: async () => {
       const { data } = await api.get<{ data: Client[] }>('/client')
       return data.data
@@ -82,7 +83,7 @@ export function CreateOrder({ children }: React.ComponentProps<'div'>) {
 
   const productsQuery = useQuery({
     queryKey: ['products'],
-    enabled: open, // ✅ só busca quando abrir
+    enabled: open,
     queryFn: async () => {
       const { data } = await api.get<{ data: Product[] }>('/product')
       return data.data
@@ -126,10 +127,6 @@ export function CreateOrder({ children }: React.ComponentProps<'div'>) {
 
     clientsQuery.refetch()
     productsQuery.refetch()
-
-    // se quiser também forçar outras listas relacionadas:
-    // queryClient.refetchQueries({ queryKey: ['categories'] })
-    // queryClient.refetchQueries({ queryKey: ['groups'] })
   }, [open]) // eslint-disable-line react-hooks/exhaustive-deps
 
   // ✅ quando fechar: limpa tudo
@@ -174,6 +171,7 @@ export function CreateOrder({ children }: React.ComponentProps<'div'>) {
 
   const clientValue = useMemo(() => {
     if (!clientDetails) return null
+    // cents
     return (clientDetails.chips ?? []).reduce(
       (acc: number, v: any) => acc + (v?.chip?.value ?? 0),
       0,
@@ -192,6 +190,7 @@ export function CreateOrder({ children }: React.ComponentProps<'div'>) {
   )
 
   const orderTotal = useMemo(() => {
+    // cents
     return orderProductsUnique.reduce((acc, p) => acc + p.price * p.quantity, 0)
   }, [orderProductsUnique])
 
@@ -218,7 +217,7 @@ export function CreateOrder({ children }: React.ComponentProps<'div'>) {
     ])
     setValue('currentProductId', null)
     setValue('currentProductName', '')
-    setValue('currentProductPrice', 1)
+    setValue('currentProductPrice', 100) // R$ 1,00
     setValue('currentProductQuantity', 1)
   }
 
@@ -269,7 +268,7 @@ export function CreateOrder({ children }: React.ComponentProps<'div'>) {
         productName: prod.name,
         productId: prod.id,
         quantity: qty,
-        price: prod.value,
+        price: prod.value, // cents
         saved: true,
         synced: false,
       })
@@ -283,7 +282,7 @@ export function CreateOrder({ children }: React.ComponentProps<'div'>) {
 
     // notRegistred
     const name = (watch('currentProductName') ?? '').trim()
-    const price = Number(watch('currentProductPrice') ?? 0)
+    const price = Number(watch('currentProductPrice') ?? 0) // cents
 
     if (!name) {
       setError('currentProductName', {
@@ -304,13 +303,13 @@ export function CreateOrder({ children }: React.ComponentProps<'div'>) {
       productName: name,
       productId: null,
       quantity: qty,
-      price,
+      price, // cents
       saved: true,
       synced: false,
     })
 
     setValue('currentProductName', '')
-    setValue('currentProductPrice', 1)
+    setValue('currentProductPrice', 100)
     setValue('currentProductQuantity', 1)
     attOrdersProducts()
   }
@@ -337,7 +336,7 @@ export function CreateOrder({ children }: React.ComponentProps<'div'>) {
         productName: p.productName,
         productId: p.productId ?? null,
         quantity: p.quantity,
-        price: p.price,
+        price: p.price, // cents
         saved: true,
         synced: false,
       })),
@@ -420,7 +419,8 @@ export function CreateOrder({ children }: React.ComponentProps<'div'>) {
 
                   {clientDetails && (
                     <p className="font-bold text-sm">
-                      Saldo do cliente: {clientValue ?? 0}
+                      Saldo do cliente:{' '}
+                      {formatBRLFromCents(Number(clientValue ?? 0) || 0)}
                     </p>
                   )}
                 </div>
@@ -489,9 +489,11 @@ export function CreateOrder({ children }: React.ComponentProps<'div'>) {
                   />
 
                   {registredProductDetails && (
-                    <div className="border flex items-center justify-center rounded-md px-2">
-                      {registredProductDetails.value *
-                        (Number(currentQty) || 1)}
+                    <div className="border flex items-center justify-center rounded-md px-2 whitespace-nowrap">
+                      {formatBRLFromCents(
+                        (registredProductDetails.value || 0) *
+                          (Number(currentQty) || 1),
+                      )}
                     </div>
                   )}
                 </div>
@@ -511,11 +513,32 @@ export function CreateOrder({ children }: React.ComponentProps<'div'>) {
                       />
                     )}
                   />
+
                   <Input
                     placeholder="Nome do Produto"
                     {...register('currentProductName')}
                   />
-                  <Input type="number" {...register('currentProductPrice')} />
+
+                  {/* ✅ preço avulso como moeda -> salva cents */}
+                  <Controller
+                    control={control}
+                    name="currentProductPrice"
+                    render={({ field }) => (
+                      <Input
+                        inputMode="numeric"
+                        placeholder="R$ 0,00"
+                        value={
+                          field.value
+                            ? formatBRLFromCents(Number(field.value) || 0)
+                            : ''
+                        }
+                        onChange={(e) => {
+                          const cents = parseBRLToCents(e.target.value)
+                          field.onChange(cents)
+                        }}
+                      />
+                    )}
+                  />
                 </div>
               )}
 
@@ -547,7 +570,8 @@ export function CreateOrder({ children }: React.ComponentProps<'div'>) {
                 {orderProductsUnique.length ? (
                   orderProductsUnique.map((p) => (
                     <div className="text-sm" key={p.productName}>
-                      {p.quantity}x - {p.productName} - {p.price}
+                      {p.quantity}x - {p.productName} -{' '}
+                      {formatBRLFromCents(Number(p.price) || 0)}
                     </div>
                   ))
                 ) : (
@@ -564,10 +588,13 @@ export function CreateOrder({ children }: React.ComponentProps<'div'>) {
               <div className="h-[1px] bg-black/80" />
 
               <div className="flex flex-col text-sm">
-                <p className="font-bold">Total: {orderTotal}</p>
+                <p className="font-bold">
+                  Total: {formatBRLFromCents(Number(orderTotal) || 0)}
+                </p>
                 {clientType === 'registred' ? (
                   <p className="font-bold">
-                    Saldo restante do cliente: {remaining ?? 0}
+                    Saldo restante do cliente:{' '}
+                    {formatBRLFromCents(Number(remaining ?? 0) || 0)}
                   </p>
                 ) : null}
               </div>
@@ -588,7 +615,7 @@ export function CreateOrder({ children }: React.ComponentProps<'div'>) {
         <DialogFooter>
           <DialogClose asChild>
             <Button
-              variant={'outline'}
+              variant={'secondary'}
               type="button"
               onClick={() => setOpen(false)}
             >

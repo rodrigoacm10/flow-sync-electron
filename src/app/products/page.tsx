@@ -48,6 +48,7 @@ import { getDownloadCsv } from '@/utils/getDownloadCsv'
 import type { OrderProduct } from '@prisma/client'
 import { DeleteProduct } from '@/components/product/DeleteProduct'
 import { useOrders } from '@/hooks/useOrders'
+import { formatBRLFromCents } from '@/utils/moneyBRL'
 
 type Category = {
   id: string
@@ -60,7 +61,7 @@ type Category = {
 type Product = {
   id: string
   name: string
-  value: number
+  value: number // ✅ cents (int)
   useQuantity: boolean
   quantity: number
   saved: boolean
@@ -73,10 +74,6 @@ type Product = {
 
 type ProductsResponse = {
   data: Product[]
-}
-
-function formatMoneyBRL(value: number) {
-  return value.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })
 }
 
 export default function Products() {
@@ -123,8 +120,9 @@ export default function Products() {
       {
         accessorKey: 'value',
         header: 'Valor',
+        // ✅ usa o formatador (cents -> BRL)
         cell: ({ row }) => (
-          <div>{formatMoneyBRL(Number(row.original.value) || 0)}</div>
+          <div>{formatBRLFromCents(Number(row.original.value) || 0)}</div>
         ),
         sortingFn: (a, b) =>
           (Number(a.original.value) || 0) - (Number(b.original.value) || 0),
@@ -177,18 +175,13 @@ export default function Products() {
                 </DropdownMenuTrigger>
 
                 <DropdownMenuContent align="end">
-                  {/* <DropdownMenuItem
-                    onClick={() => console.log('edit', product.id)}
-                  >
-                    Editar nome
-                  </DropdownMenuItem> */}
                   <DeleteProduct productId={product.id}>
                     {({ open }) => (
                       <DropdownMenuItem
                         className="text-red-500 focus:text-red-500"
                         onSelect={(e) => {
-                          e.preventDefault() // <- impede o dropdown de fechar
-                          open() // <- abre o dialog
+                          e.preventDefault()
+                          open()
                         }}
                       >
                         Excluir
@@ -222,19 +215,24 @@ export default function Products() {
     },
   })
 
-  // filtro por categoria (aplica por cima do rowModel do tanstack)
   const filteredRows = React.useMemo(() => {
     const rows = table.getRowModel().rows
     if (categoryFilter === 'all') return rows
     return rows.filter((r) => r.original.category?.id === categoryFilter)
   }, [table, categoryFilter, globalFilter, sorting, products])
 
+  function centsToPtBrDecimal(cents: number) {
+    const safe = Number.isFinite(Number(cents)) ? Number(cents) : 0
+    return (safe / 100).toFixed(2).replace('.', ',') // "10,00"
+  }
+
   const handleExportCsv = () => {
     const csvRows = filteredRows.map((r) => {
       const p = r.original
       return {
         nome: p.name,
-        valor: Number(p.value) || 0,
+        // ✅ uma coluna só, e como string "10,00"
+        valor: centsToPtBrDecimal(Number(p.value) || 0),
         categoria: p.category?.name ?? '',
         usaQuantidade: p.useQuantity ? 'sim' : 'não',
         quantidade: p.useQuantity ? p.quantity ?? 0 : '',

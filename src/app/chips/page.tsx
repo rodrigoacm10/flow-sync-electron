@@ -46,6 +46,7 @@ import { MoreHorizontal } from 'lucide-react'
 import { getDownloadCsv } from '@/utils/getDownloadCsv'
 import { DeleteChip } from '@/components/chip/DeleteChip'
 import { useOrders } from '@/hooks/useOrders'
+import { formatBRLFromCents } from '@/utils/moneyBRL'
 
 type Client = {
   id: string
@@ -58,7 +59,7 @@ type Client = {
 
 type Chip = {
   id: string
-  value: number
+  value: number // cents (int)
   date: string
   saved: boolean
   synced: boolean
@@ -71,14 +72,16 @@ type ChipsResponse = {
   data: Chip[]
 }
 
-function formatMoneyBRL(value: number) {
-  return value.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })
-}
-
 function formatDateBR(dateISO: string) {
   const d = new Date(dateISO)
   if (Number.isNaN(d.getTime())) return dateISO
   return d.toLocaleString('pt-BR')
+}
+
+// CSV seguro: "10,00"
+function centsToPtBrDecimal(cents: number) {
+  const safe = Number.isFinite(Number(cents)) ? Number(cents) : 0
+  return (safe / 100).toFixed(2).replace('.', ',')
 }
 
 export default function Chips() {
@@ -138,7 +141,7 @@ export default function Chips() {
         accessorKey: 'value',
         header: 'Valor',
         cell: ({ row }) => (
-          <div>{formatMoneyBRL(Number(row.original.value) || 0)}</div>
+          <div>{formatBRLFromCents(Number(row.original.value) || 0)}</div>
         ),
         sortingFn: (a, b) =>
           (Number(a.original.value) || 0) - (Number(b.original.value) || 0),
@@ -168,8 +171,8 @@ export default function Chips() {
                       <DropdownMenuItem
                         className="text-red-500 focus:text-red-500"
                         onSelect={(e) => {
-                          e.preventDefault() // <- impede o dropdown de fechar
-                          open() // <- abre o dialog
+                          e.preventDefault()
+                          open()
                         }}
                       >
                         Excluir
@@ -213,9 +216,10 @@ export default function Chips() {
     const csvRows = filteredRows.map((r) => {
       const c = r.original
       return {
-        data: c.date, // iso no csv (excel lida melhor). se quiser pt-br, troca por formatDateBR(c.date)
+        data: c.date, // ISO
         cliente: c.client?.name ?? '',
-        valor: Number(c.value) || 0,
+        // ✅ "10,00" pra não quebrar em coluna no Excel
+        valor: centsToPtBrDecimal(Number(c.value) || 0),
       }
     })
 

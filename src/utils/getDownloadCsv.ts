@@ -1,7 +1,9 @@
 function escapeCsv(value: unknown) {
   const s = String(value ?? '')
-  // se tiver ; " \n, envolve em aspas e escapa aspas duplas
-  if (/[;"\n\r]/.test(s)) return `"${s.replace(/"/g, '""')}"`
+
+  // se tiver ; , " \n \r, envolve em aspas e escapa aspas duplas
+  // (a vírgula é importante aqui, pra evitar Excel/Sheets quebrando)
+  if (/[;,"\n\r]/.test(s)) return `"${s.replace(/"/g, '""')}"`
   return s
 }
 
@@ -12,7 +14,10 @@ export function getDownloadCsv(
   if (!rows.length) return
 
   const headers = Object.keys(rows[0])
+
+  // "sep=;" ajuda o Excel a entender o delimitador corretamente
   const csv = [
+    'sep=;',
     headers.map(escapeCsv).join(';'),
     ...rows.map((r) => headers.map((h) => escapeCsv(r[h])).join(';')),
   ].join('\n')

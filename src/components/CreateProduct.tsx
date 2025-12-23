@@ -22,6 +22,7 @@ import { zodResolver } from '@hookform/resolvers/zod'
 import { api } from '@/lib/api'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { toast } from 'sonner'
+import { formatBRLFromCents, parseBRLToCents } from '@/utils/moneyBRL'
 
 type Category = {
   id: string
@@ -33,7 +34,7 @@ type Category = {
 
 const DEFAULTS = {
   name: '',
-  value: 1,
+  value: 0, // ✅ cents (int)
   stockType: 'noStock' as const,
   quantity: 0,
   categoryId: null as string | null,
@@ -42,11 +43,9 @@ const DEFAULTS = {
 const CreateProductSchema = z
   .object({
     name: z.string().trim().min(2, 'Informe o nome do produto.'),
-    value: z.coerce.number().int().positive('Valor precisa ser maior que 0.'),
-
+    value: z.coerce.number().int().positive('Valor precisa ser maior que 0.'), // ✅ cents (int)
     stockType: z.enum(['withStock', 'noStock']),
     quantity: z.coerce.number().int().nonnegative().optional(),
-
     categoryId: z.string().uuid().nullable(),
   })
   .superRefine((data, ctx) => {
@@ -71,15 +70,14 @@ export function CreateProduct({ children }: React.ComponentProps<'div'>) {
   const queryClient = useQueryClient()
   const [open, setOpen] = useState(false)
 
-  // ✅ buscar categorias (só quando dialog estiver aberto)
   const categoriesQuery = useQuery({
     queryKey: ['categories'],
-    enabled: open, // ✅ só busca quando abrir
+    enabled: open,
     queryFn: async () => {
       const { data } = await api.get<{ data: Category[] }>('/category')
       return data.data
     },
-    staleTime: 0, // ✅ sempre "stale" (facilita refetch)
+    staleTime: 0,
     refetchOnMount: 'always',
     refetchOnWindowFocus: false,
   })
@@ -121,18 +119,13 @@ export function CreateProduct({ children }: React.ComponentProps<'div'>) {
     }
   }
 
-  // ✅ sempre que abrir o dialog: refetch "de todos os itens"
-  // aqui: categories + (se quiser) products
   useEffect(() => {
     if (!open) return
 
     categoriesQuery.refetch()
     queryClient.refetchQueries({ queryKey: ['products'] })
-    // adicione outros itens aqui se quiser:
-    // queryClient.refetchQueries({ queryKey: ['clients'] })
   }, [open]) // eslint-disable-line react-hooks/exhaustive-deps
 
-  // ✅ sempre que fechar o dialog: limpa tudo
   useEffect(() => {
     if (open) return
     reset(DEFAULTS)
@@ -141,7 +134,7 @@ export function CreateProduct({ children }: React.ComponentProps<'div'>) {
   const createProduct = useMutation({
     mutationFn: async (payload: {
       name: string
-      value: number
+      value: number // ✅ cents (int)
       useQuantity: boolean
       quantity: number
       saved: boolean
@@ -156,7 +149,6 @@ export function CreateProduct({ children }: React.ComponentProps<'div'>) {
       queryClient.refetchQueries({ queryKey: ['products'] })
       queryClient.refetchQueries({ queryKey: ['categories'] })
 
-      // ✅ limpa tudo e fecha
       reset(DEFAULTS)
       setOpen(false)
     },
@@ -178,7 +170,7 @@ export function CreateProduct({ children }: React.ComponentProps<'div'>) {
 
     const payload: any = {
       name: parsed.data.name.trim(),
-      value: parsed.data.value,
+      value: parsed.data.value, // ✅ cents (int)
       useQuantity,
       quantity,
       saved: true,
@@ -229,11 +221,26 @@ export function CreateProduct({ children }: React.ComponentProps<'div'>) {
               )}
             </div>
 
-            {/* Valor */}
+            {/* Valor (cents int, mas exibido formatado) */}
             <div className="grid gap-1">
-              <Input
-                type="number"
-                {...register('value', { valueAsNumber: true })}
+              <Controller
+                control={control}
+                name="value"
+                render={({ field }) => (
+                  <Input
+                    inputMode="numeric"
+                    placeholder="R$ 0,00"
+                    value={
+                      field.value
+                        ? formatBRLFromCents(Number(field.value) || 0)
+                        : ''
+                    }
+                    onChange={(e) => {
+                      const cents = parseBRLToCents(e.target.value)
+                      field.onChange(cents)
+                    }}
+                  />
+                )}
               />
               {errors.value?.message && (
                 <p className="text-xs text-red-500">{errors.value.message}</p>
@@ -316,7 +323,7 @@ export function CreateProduct({ children }: React.ComponentProps<'div'>) {
             <Button
               variant="outline"
               type="button"
-              onClick={() => setOpen(false)} // ✅ dispara limpeza via effect
+              onClick={() => setOpen(false)}
             >
               Cancelar
             </Button>

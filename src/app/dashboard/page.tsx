@@ -14,6 +14,7 @@ import { useQuery } from '@tanstack/react-query'
 import axios from 'axios'
 import Link from 'next/link'
 import { useMemo } from 'react'
+import { formatBRLFromCents } from '@/utils/moneyBRL'
 
 const getProducts = (
   orders: (Order & { orderProducts: OrderProduct[] })[],
@@ -30,7 +31,7 @@ const getProducts = (
       products.push({
         name: op.productName,
         quantity: op.quantity,
-        price: op.price,
+        price: op.price, // ✅ price em cents (int)
       })
   }
 
@@ -42,7 +43,6 @@ type OrderWithProducts = Order & { orderProducts: OrderProduct[] }
 export default function Dashboard() {
   const { changedStatus } = useOrders()
 
-  // como fazer isso dar refetch todas as vezes? da forma que está só faz refetch na primeira requisição invalidando a querykey, mas o resto n faz nada
   const {
     data: orders = [],
     isLoading,
@@ -53,7 +53,6 @@ export default function Dashboard() {
       const { data } = await axios.get<{ data: OrderWithProducts[] }>(
         '/api/order',
       )
-
       return data.data
     },
     refetchOnWindowFocus: true,
@@ -70,6 +69,10 @@ export default function Dashboard() {
   }, [orders])
 
   const products = useMemo(() => getProducts(orders), [orders])
+
+  const totalCents = useMemo(() => {
+    return products.reduce((acc, val) => acc + val.price * val.quantity, 0)
+  }, [products])
 
   return (
     <div className="bg-gradient-to-br from-[#000000]/100 to-[#2b2b2b] h-screen text-white px-6 py-4 flex flex-col">
@@ -163,7 +166,9 @@ export default function Dashboard() {
                 products.map((value) => (
                   <div key={value.name}>
                     <p>
-                      {value.quantity}x R$ {value.price} - {value.name}
+                      {/* ✅ value.price em cents */}
+                      {value.quantity}x {formatBRLFromCents(value.price)} -{' '}
+                      {value.name}
                     </p>
                   </div>
                 ))
@@ -175,8 +180,7 @@ export default function Dashboard() {
 
           <div className="mb-2">
             <p className="font-bold text-xl">
-              Total:{' '}
-              {products.reduce((acc, val) => acc + val.price * val.quantity, 0)}
+              Total: {formatBRLFromCents(totalCents)}
             </p>
           </div>
 

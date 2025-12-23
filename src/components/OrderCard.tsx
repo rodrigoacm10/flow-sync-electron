@@ -3,10 +3,11 @@ import { Checkbox } from './ui/checkbox'
 import { api } from '@/lib/api'
 import { useEffect, useState } from 'react'
 import { useOrders } from '@/hooks/useOrders'
-import { MoreHorizontal, MoreVertical, OptionIcon } from 'lucide-react'
+import { MoreVertical } from 'lucide-react'
 import { OptionsOrder } from './order/OptionsOrder'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { toast } from 'sonner'
+import { formatBRLFromCents } from '@/utils/moneyBRL'
 
 const checkOrder = async ({
   orderId,
@@ -16,7 +17,6 @@ const checkOrder = async ({
   to: boolean
 }) => {
   const response = await api.post('/order/check', { orderId, to })
-
   return response
 }
 
@@ -53,6 +53,12 @@ export const OrderCard = ({
     },
   })
 
+  const orderTotalCents =
+    order?.orderProducts?.reduce(
+      (acc, op) => acc + (op.price ?? 0) * (op.quantity ?? 0),
+      0,
+    ) ?? 0
+
   return (
     <div className="bg-[#2b2b2b] rounded-xl px-6 py-3">
       <div className="flex justify-between">
@@ -60,14 +66,7 @@ export const OrderCard = ({
           <p className="font-bold">12:59</p>
           <p className="font-bold">-</p>
 
-          <p className="font-bold">
-            R${' '}
-            {order?.orderProducts?.reduce(
-              (acc, orderProduct) =>
-                (acc += orderProduct.price * orderProduct.quantity),
-              0,
-            )}
-          </p>
+          <p className="font-bold">{formatBRLFromCents(orderTotalCents)}</p>
         </div>
 
         <div className="flex gap-3 items-center">
@@ -82,8 +81,6 @@ export const OrderCard = ({
 
           <OptionsOrder order={order}>
             <MoreVertical className="h-5 w-5" />
-
-            {/* <OptionIcon size={16} /> */}
           </OptionsOrder>
         </div>
       </div>
@@ -96,21 +93,18 @@ export const OrderCard = ({
         {order?.orderProducts?.map((orderProduct) => (
           <OrderProduct key={orderProduct.id} orderProduct={orderProduct} />
         ))}
-        {/* <OrderProduct />
-        <OrderProduct />
-        <OrderProduct />
-        <OrderProduct />
-        <OrderProduct /> */}
       </div>
     </div>
   )
 }
 
 const OrderProduct = ({ orderProduct }: { orderProduct: OrderProduct }) => {
+  const priceCents = Number(orderProduct.price) || 0
+
   return (
     <div className="text-sm">
       <p>
-        {orderProduct.quantity}x R$ {orderProduct.price} -{' '}
+        {orderProduct.quantity}x {formatBRLFromCents(priceCents)} -{' '}
         {orderProduct.productName}
       </p>
     </div>

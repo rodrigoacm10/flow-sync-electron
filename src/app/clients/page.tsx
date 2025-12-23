@@ -50,10 +50,11 @@ import { OrderProduct } from '@prisma/client'
 import { getDownloadCsv } from '@/utils/getDownloadCsv'
 import { DeleteClient } from '@/components/client/DeleteClient'
 import { useOrders } from '@/hooks/useOrders'
+import { formatBRLFromCents } from '@/utils/moneyBRL'
 
 type Chip = {
   id: string
-  value: number
+  value: number // cents
   date: string
   saved: boolean
   synced: boolean
@@ -98,28 +99,31 @@ type ClientsResponse = {
 }
 
 function sumChipsValue(chips: Chip[]) {
-  return chips.reduce((acc, c) => acc + (Number(c.value) || 0), 0)
+  return chips.reduce((acc, c) => acc + (Number(c.value) || 0), 0) // cents
 }
 
 function sumOrdersValues(orders: Order[]) {
   return orders.reduce(
     (acc, order) =>
-      (acc += order.orderProducts.reduce(
-        (acc, orderProduct) => (acc += orderProduct.price),
+      acc +
+      order.orderProducts.reduce(
+        (acc2, orderProduct) => acc2 + (orderProduct.price || 0), // cents
         0,
-      )),
+      ),
     0,
   )
-}
-
-function formatMoneyBRL(value: number) {
-  return value.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })
 }
 
 function formatDateBR(dateISO: string) {
   const d = new Date(dateISO)
   if (Number.isNaN(d.getTime())) return dateISO
   return d.toLocaleString('pt-BR')
+}
+
+// CSV seguro: "10,00"
+function centsToPtBrDecimal(cents: number) {
+  const safe = Number.isFinite(Number(cents)) ? Number(cents) : 0
+  return (safe / 100).toFixed(2).replace('.', ',')
 }
 
 export default function Clients() {
@@ -181,12 +185,17 @@ export default function Clients() {
         cell: ({ row }) => {
           const totalChips = sumChipsValue(row.original.chips || [])
           const totalOrders = sumOrdersValues(row.original.orders || [])
-          return <div>{formatMoneyBRL(totalChips - totalOrders)}</div>
+          const saldo = totalChips - totalOrders
+          return <div>{formatBRLFromCents(saldo)}</div>
         },
         sortingFn: (a, b) => {
-          const av = sumChipsValue(a.original.chips || [])
-          const bv = sumChipsValue(b.original.chips || [])
-          return av - bv
+          const asaldo =
+            sumChipsValue(a.original.chips || []) -
+            sumOrdersValues(a.original.orders || [])
+          const bsaldo =
+            sumChipsValue(b.original.chips || []) -
+            sumOrdersValues(b.original.orders || [])
+          return asaldo - bsaldo
         },
       },
       {
@@ -249,20 +258,13 @@ export default function Clients() {
                 </DropdownMenuTrigger>
 
                 <DropdownMenuContent align="end">
-                  {/* <DropdownMenuItem
-                    onClick={() => console.log('edit', client.id)}
-                  >
-                    Editar nome
-                  </DropdownMenuItem> */}
-
-                  {/* aqui quando eu apertor para abrir o dialog ele se fehca automaticamente, como resolver isso?  */}
                   <DeleteClient clientId={client.id}>
                     {({ open }) => (
                       <DropdownMenuItem
                         className="text-red-500 focus:text-red-500"
                         onSelect={(e) => {
-                          e.preventDefault() // <- impede o dropdown de fechar
-                          open() // <- abre o dialog
+                          e.preventDefault()
+                          open()
                         }}
                       >
                         Excluir
@@ -297,7 +299,6 @@ export default function Clients() {
   })
 
   const handleExportCsv = () => {
-    // pega linhas APÓS filtro + ordenação (o que está na tabela)
     const rows = table.getRowModel().rows
 
     const csvRows = rows.map((row) => {
@@ -309,7 +310,8 @@ export default function Clients() {
 
       return {
         nome: c.name,
-        saldo: saldo,
+        // ✅ CSV seguro (uma coluna, "10,00")
+        saldo: centsToPtBrDecimal(saldo),
         grupo: c.group?.name ?? '',
         pedidos: c.orders?.length ?? 0,
         fichas: c.chips?.length ?? 0,
@@ -471,7 +473,7 @@ export default function Clients() {
                   (selectedClient?.chips ?? []).map((chip) => (
                     <TableRow key={chip.id} className="border-white/10">
                       <TableCell className="text-white">
-                        {formatMoneyBRL(Number(chip.value) || 0)}
+                        {formatBRLFromCents(Number(chip.value) || 0)}
                       </TableCell>
                       <TableCell className="text-white">
                         {formatDateBR(chip.date)}
@@ -525,24 +527,25 @@ export default function Clients() {
                     </TableCell>
                   </TableRow>
                 ) : (
-                  (selectedClient?.orders ?? []).map((order) => (
-                    <TableRow key={order.id} className="border-white/10">
-                      <TableCell className="text-white">
-                        {formatMoneyBRL(
-                          order.orderProducts.reduce(
-                            (acc, orderProduct) => (acc += orderProduct.price),
-                            0,
-                          ) || 0,
-                        )}
-                      </TableCell>
-                      <TableCell className="text-white">
-                        {order.concluded ? 'sim' : 'não'}
-                      </TableCell>
-                      <TableCell className="text-white">
-                        {formatDateBR(order.date)}
-                      </TableCell>
-                    </TableRow>
-                  ))
+                  (selectedClient?.orders ?? []).map((order) => {
+                    const total = order.orderProducts.reduce(
+                      (acc, op) => acc + (op.price || 0),
+                      0,
+                    )
+                    return (
+                      <TableRow key={order.id} className="border-white/10">
+                        <TableCell className="text-white">
+                          {formatBRLFromCents(total)}
+                        </TableCell>
+                        <TableCell className="text-white">
+                          {order.concluded ? 'sim' : 'não'}
+                        </TableCell>
+                        <TableCell className="text-white">
+                          {formatDateBR(order.date)}
+                        </TableCell>
+                      </TableRow>
+                    )
+                  })
                 )}
               </TableBody>
             </Table>

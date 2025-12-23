@@ -23,6 +23,7 @@ import { getTodayDate } from '@/utils/getTodayDate'
 import { getDateToISO } from '@/utils/getDateToISO'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { toast } from 'sonner'
+import { formatBRLFromCents, parseBRLToCents } from '@/utils/moneyBRL'
 
 type Client = {
   id: string
@@ -30,7 +31,7 @@ type Client = {
   chips?: Array<{ value: number }>
 }
 
-// Schema do formulário
+// Schema do formulário (value = cents int)
 const CreateChipSchema = z.object({
   date: z.string().min(1, 'Informe a data.'),
   clientId: z.string().uuid('Selecione um cliente válido.'),
@@ -42,7 +43,7 @@ type CreateChipForm = z.input<typeof CreateChipSchema>
 const DEFAULTS = (tz: string) => ({
   date: getTodayDate(tz),
   clientId: '',
-  value: 1000,
+  value: 1000, // 10,00
 })
 
 export function CreateChip({ children }: React.ComponentProps<'div'>) {
@@ -50,15 +51,14 @@ export function CreateChip({ children }: React.ComponentProps<'div'>) {
   const userTimeZone = 'America/Recife'
   const [open, setOpen] = useState(false)
 
-  // ✅ busca clientes (refaz toda vez que abrir)
   const clientsQuery = useQuery({
     queryKey: ['clients'],
-    enabled: open, // só busca quando dialog estiver aberto
+    enabled: open,
     queryFn: async () => {
       const { data } = await api.get<{ data: Client[] }>('/client')
       return data.data
     },
-    staleTime: 0, // sempre stale => sempre refetch
+    staleTime: 0,
     refetchOnMount: 'always',
     refetchOnWindowFocus: false,
   })
@@ -82,19 +82,14 @@ export function CreateChip({ children }: React.ComponentProps<'div'>) {
     reset,
   } = form
 
-  // ✅ ao abrir: refetch de “todos os itens” que você quiser
   useEffect(() => {
     if (!open) return
 
-    // força refetch dos dados que esse dialog usa
     clientsQuery.refetch()
-
-    // se quiser garantir que outras telas/listas também atualizem ao abrir:
     queryClient.refetchQueries({ queryKey: ['clients'] })
     queryClient.refetchQueries({ queryKey: ['chips'] })
   }, [open]) // eslint-disable-line react-hooks/exhaustive-deps
 
-  // ✅ ao fechar: limpar tudo
   useEffect(() => {
     if (open) return
     reset(DEFAULTS(userTimeZone))
@@ -109,6 +104,7 @@ export function CreateChip({ children }: React.ComponentProps<'div'>) {
 
   const clientBalance = useMemo(() => {
     if (!selectedClient) return null
+    // saldo em cents
     return (selectedClient.chips ?? []).reduce(
       (acc, c: any) => acc + (c?.value ?? 0),
       0,
@@ -118,7 +114,7 @@ export function CreateChip({ children }: React.ComponentProps<'div'>) {
   const createChip = useMutation({
     mutationFn: async (payload: {
       date: string
-      value: number
+      value: number // cents
       clientId: string
       saved: boolean
       synced: boolean
@@ -131,7 +127,6 @@ export function CreateChip({ children }: React.ComponentProps<'div'>) {
       queryClient.refetchQueries({ queryKey: ['clients'] })
       queryClient.refetchQueries({ queryKey: ['chips'] })
 
-      // ✅ limpa e fecha (ao fechar, o effect também garante reset)
       reset(DEFAULTS(userTimeZone))
       setOpen(false)
     },
@@ -150,7 +145,7 @@ export function CreateChip({ children }: React.ComponentProps<'div'>) {
 
     const payload = {
       date: getDateToISO(parsed.data.date),
-      value: parsed.data.value,
+      value: parsed.data.value, // cents
       clientId: parsed.data.clientId,
       saved: true,
       synced: false,
@@ -191,7 +186,7 @@ export function CreateChip({ children }: React.ComponentProps<'div'>) {
               )}
             </div>
 
-            {/* Client (registered only) */}
+            {/* Client */}
             <div className="grid gap-1">
               <Controller
                 control={control}
@@ -219,16 +214,32 @@ export function CreateChip({ children }: React.ComponentProps<'div'>) {
 
               {selectedClient && (
                 <p className="text-xs font-semibold">
-                  Saldo atual: {clientBalance ?? 0}
+                  Saldo atual:{' '}
+                  {formatBRLFromCents(Number(clientBalance ?? 0) || 0)}
                 </p>
               )}
             </div>
 
-            {/* Value */}
+            {/* Value (currency input -> cents) */}
             <div className="grid gap-1">
-              <Input
-                type="number"
-                {...register('value', { valueAsNumber: true })}
+              <Controller
+                control={control}
+                name="value"
+                render={({ field }) => (
+                  <Input
+                    inputMode="numeric"
+                    placeholder="R$ 0,00"
+                    value={
+                      field.value
+                        ? formatBRLFromCents(Number(field.value) || 0)
+                        : ''
+                    }
+                    onChange={(e) => {
+                      const cents = parseBRLToCents(e.target.value)
+                      field.onChange(cents)
+                    }}
+                  />
+                )}
               />
               {errors.value?.message && (
                 <p className="text-xs text-red-500">{errors.value.message}</p>
