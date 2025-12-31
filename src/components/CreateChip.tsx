@@ -29,6 +29,7 @@ type Client = {
   id: string
   name: string
   chips?: Array<{ value: number }>
+  orders?: { orderProducts: { price: number }[] }[]
 }
 
 // Schema do formulário (value = cents int)
@@ -45,6 +46,11 @@ const DEFAULTS = (tz: string) => ({
   clientId: '',
   value: 1000, // 10,00
 })
+
+function centsToPtBrDecimal(cents: number) {
+  const safe = Number.isFinite(Number(cents)) ? Number(cents) : 0
+  return (safe / 100).toFixed(2).replace('.', ',')
+}
 
 export function CreateChip({ children }: React.ComponentProps<'div'>) {
   const queryClient = useQueryClient()
@@ -105,10 +111,23 @@ export function CreateChip({ children }: React.ComponentProps<'div'>) {
   const clientBalance = useMemo(() => {
     if (!selectedClient) return null
     // saldo em cents
-    return (selectedClient.chips ?? []).reduce(
+
+    const chipsTotal = (selectedClient.chips ?? []).reduce(
       (acc, c: any) => acc + (c?.value ?? 0),
       0,
     )
+
+    const ordersTotal = (selectedClient.orders ?? []).reduce(
+      (acc, order) =>
+        acc +
+        order.orderProducts.reduce(
+          (acc2, orderProduct) => acc2 + (orderProduct.price || 0), // cents
+          0,
+        ),
+      0,
+    )
+
+    return chipsTotal - ordersTotal
   }, [selectedClient])
 
   const createChip = useMutation({
@@ -215,7 +234,8 @@ export function CreateChip({ children }: React.ComponentProps<'div'>) {
               {selectedClient && (
                 <p className="text-xs font-semibold">
                   Saldo atual:{' '}
-                  {formatBRLFromCents(Number(clientBalance ?? 0) || 0)}
+                  {/* {formatBRLFromCents(Number(clientBalance ?? 0) || 0)} */}
+                  R$ {centsToPtBrDecimal(clientBalance ?? 0) || 0}
                 </p>
               )}
             </div>

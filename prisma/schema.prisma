@@ -62,17 +62,20 @@ model Chip {
 // }
 
 model Client {
-  id         String      @id @default(uuid())
-  name       String
-  saved      Boolean
-  synced     Boolean     @default(false)
-  userId     String
-  groupId    String?
+  id            String      @id @default(uuid())
+  name          String
+  // adicionei isso
+  description   String      @default("")
+  saved         Boolean
+  synced        Boolean     @default(false)
 
-  user        User         @relation(fields: [userId], references: [id])
-  group       Group?       @relation(fields: [groupId], references: [id])
-  chips       Chip[]
-  orders      Order[]
+  userId        String
+  groupId       String?
+
+  user          User         @relation(fields: [userId], references: [id])
+  group         Group?       @relation(fields: [groupId], references: [id])
+  chips         Chip[]
+  orders        Order[]
 
   @@unique([name, userId])
 }

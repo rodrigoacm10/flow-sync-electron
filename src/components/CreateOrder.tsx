@@ -33,7 +33,8 @@ import { formatBRLFromCents, parseBRLToCents } from '@/utils/moneyBRL'
 type Client = {
   id: string
   name: string
-  chips: Array<{ chip: { value: number } }> // cents
+  chips?: Array<{ value: number }>
+  orders?: { orderProducts: { price: number }[] }[]
 }
 
 type Product = {
@@ -172,10 +173,22 @@ export function CreateOrder({ children }: React.ComponentProps<'div'>) {
   const clientValue = useMemo(() => {
     if (!clientDetails) return null
     // cents
-    return (clientDetails.chips ?? []).reduce(
-      (acc: number, v: any) => acc + (v?.chip?.value ?? 0),
+    const chipsTotal = (clientDetails.chips ?? []).reduce(
+      (acc, c: any) => acc + (c?.value ?? 0),
       0,
     )
+
+    const ordersTotal = (clientDetails.orders ?? []).reduce(
+      (acc, order) =>
+        acc +
+        order.orderProducts.reduce(
+          (acc2, orderProduct) => acc2 + (orderProduct.price || 0), // cents
+          0,
+        ),
+      0,
+    )
+
+    return chipsTotal - ordersTotal
   }, [clientDetails])
 
   const registredProductDetails = useMemo(() => {

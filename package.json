@@ -11,6 +11,7 @@
   },
   "scripts": {
     "postinstall": "prisma generate && electron-builder install-app-deps",
+    "dev:web": "npm rebuild better-sqlite3 && next dev",
     "dev": "tsc-watch --noClear --onSuccess \"electron .\" --project tsconfig-electron.json",
     "build:next": "next build",
     "build:prisma": "prisma generate",

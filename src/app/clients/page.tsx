@@ -85,6 +85,8 @@ type Group = {
 type Client = {
   id: string
   name: string
+  // ✅ 1. Campo description adicionado na tipagem
+  description: string
   saved: boolean
   synced: boolean
   userId: string
@@ -177,6 +179,19 @@ export default function Clients() {
         header: 'Nome',
         cell: ({ row }) => (
           <div className="font-medium">{row.original.name}</div>
+        ),
+      },
+      // ✅ 2. Coluna de Descrição adicionada
+      {
+        accessorKey: 'description',
+        header: 'Descrição',
+        cell: ({ row }) => (
+          <div
+            className="text-sm text-white/60 truncate max-w-[200px]"
+            title={row.original.description} // Tooltip nativo para ver texto completo
+          >
+            {row.original.description || '—'}
+          </div>
         ),
       },
       {
@@ -294,7 +309,10 @@ export default function Clients() {
       const v = String(filterValue ?? '').toLowerCase()
       const name = row.original.name?.toLowerCase() ?? ''
       const group = row.original.group?.name?.toLowerCase() ?? ''
-      return name.includes(v) || group.includes(v)
+      // ✅ 3. Adicionado filtro pela descrição
+      const desc = row.original.description?.toLowerCase() ?? ''
+
+      return name.includes(v) || group.includes(v) || desc.includes(v)
     },
   })
 
@@ -310,7 +328,8 @@ export default function Clients() {
 
       return {
         nome: c.name,
-        // ✅ CSV seguro (uma coluna, "10,00")
+        // ✅ 4. Adicionado descrição ao CSV
+        descricao: c.description || '',
         saldo: centsToPtBrDecimal(saldo),
         grupo: c.group?.name ?? '',
         pedidos: c.orders?.length ?? 0,
@@ -353,7 +372,7 @@ export default function Clients() {
       <div className="mt-4 flex items-center gap-3">
         <Input
           className="max-w-sm bg-white/10 border-white/10 text-white placeholder:text-white/50"
-          placeholder="Buscar por nome ou grupo..."
+          placeholder="Buscar por nome, grupo ou descrição..."
           value={globalFilter}
           onChange={(e) => setGlobalFilter(e.target.value)}
         />

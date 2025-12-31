@@ -31,15 +31,19 @@ type Group = {
   userId: string
 }
 
+// ✅ 1. Adicionado description aos defaults
 const DEFAULTS = {
   name: '',
+  description: '',
   groupType: 'noGroup' as const,
   groupId: null as string | null,
 }
 
+// ✅ 2. Adicionado description ao Schema
 const CreateClientSchema = z
   .object({
     name: z.string().trim().min(2, 'Informe o nome do cliente.'),
+    description: z.string().optional(),
     groupType: z.enum(['withGroup', 'noGroup']),
     groupId: z.string().uuid().nullable(),
   })
@@ -59,15 +63,14 @@ export function CreateClient({ children }: React.ComponentProps<'div'>) {
   const queryClient = useQueryClient()
   const [open, setOpen] = useState(false)
 
-  // ✅ buscar grupos (sempre refaz quando abrir)
   const groupsQuery = useQuery({
     queryKey: ['groups'],
-    enabled: open, // ✅ só faz fetch quando dialog abre
+    enabled: open,
     queryFn: async () => {
       const { data } = await api.get<{ data: Group[] }>('/group')
       return data.data
     },
-    staleTime: 0, // ✅ sempre stale -> refetch sem frescura
+    staleTime: 0,
     refetchOnMount: 'always',
     refetchOnWindowFocus: false,
   })
@@ -100,26 +103,22 @@ export function CreateClient({ children }: React.ComponentProps<'div'>) {
     return groups.find((g) => g.id === groupId) ?? null
   }, [groupId, groups])
 
-  // ✅ ao abrir: refetch de "todos os itens" que você quiser
   useEffect(() => {
     if (!open) return
-
     groupsQuery.refetch()
     queryClient.refetchQueries({ queryKey: ['clients'] })
-    // se quiser mais:
-    // queryClient.refetchQueries({ queryKey: ['orders'] })
-    // queryClient.refetchQueries({ queryKey: ['products'] })
-  }, [open]) // eslint-disable-line react-hooks/exhaustive-deps
+  }, [open])
 
-  // ✅ ao fechar: limpar tudo
   useEffect(() => {
     if (open) return
     reset(DEFAULTS)
   }, [open, reset])
 
+  // ✅ 3. Atualizado tipagem do payload
   const createClient = useMutation({
     mutationFn: async (payload: {
       name: string
+      description: string
       saved: boolean
       synced: boolean
       groupId?: string
@@ -132,7 +131,6 @@ export function CreateClient({ children }: React.ComponentProps<'div'>) {
       queryClient.refetchQueries({ queryKey: ['clients'] })
       queryClient.refetchQueries({ queryKey: ['groups'] })
 
-      // ✅ limpa e fecha
       reset(DEFAULTS)
       setOpen(false)
     },
@@ -160,11 +158,13 @@ export function CreateClient({ children }: React.ComponentProps<'div'>) {
 
     const payload: {
       name: string
+      description: string
       saved: boolean
       synced: boolean
       groupId?: string
     } = {
       name: parsed.data.name.trim(),
+      description: parsed.data.description || '', // Envia string vazia se undefined
       saved: true,
       synced: false,
     }
@@ -205,6 +205,19 @@ export function CreateClient({ children }: React.ComponentProps<'div'>) {
               <Input placeholder="Nome do cliente" {...register('name')} />
               {errors.name?.message && (
                 <p className="text-xs text-red-500">{errors.name.message}</p>
+              )}
+            </div>
+
+            {/* ✅ 4. Novo campo de Descrição */}
+            <div className="grid gap-1">
+              <Input
+                placeholder="Descrição (opcional)"
+                {...register('description')}
+              />
+              {errors.description?.message && (
+                <p className="text-xs text-red-500">
+                  {errors.description.message}
+                </p>
               )}
             </div>
 
