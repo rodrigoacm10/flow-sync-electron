@@ -3,6 +3,7 @@
 import { useForm } from 'react-hook-form'
 import { z } from 'zod'
 import { zodResolver } from '@hookform/resolvers/zod'
+import { Button } from '@/components/ui/button'
 
 const schema = z
   .object({
@@ -42,10 +43,10 @@ export default function RegisterPage() {
   }
 
   return (
-    <div className="bg-gradient-to-br from-[#000000]/100 to-[#2b2b2b] min-h-screen flex items-center justify-center flex-col">
+    <div className="bg-linear-to-br from-[#000000] to-[#2b2b2b] min-h-screen flex items-center justify-center flex-col">
       <form
         onSubmit={handleSubmit(onSubmit)}
-        className="flex flex-col gap-2 w-64 text-white bg-red-300 items-center rounded-xl px-2 py-5"
+        className="flex flex-col gap-2 w-64 text-white bg-linear-to-br shadow-[#ffffff] shadow-2xl from-[#000000] to-[#2b2b2b] items-center rounded-xl px-2 py-5"
       >
         <p className="font-bold text-xl">Cadastrar</p>
 
@@ -73,12 +74,9 @@ export default function RegisterPage() {
           />
           {errors.confirmPassword && <p>{errors.confirmPassword.message}</p>}
 
-          <button
-            className="bg-red-500 mt-2 w-full rounded-lg p-2 hover:cursor-pointer"
-            type="submit"
-          >
+          <Button variant="secondary" type="submit">
             Criar conta
-          </button>
+          </Button>
         </div>
       </form>
 

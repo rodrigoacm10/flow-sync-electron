@@ -190,7 +190,7 @@ export function CreateChip({ children }: React.ComponentProps<'div'>) {
           }}
         >
           <DialogHeader>
-            <DialogTitle>Criar Chip</DialogTitle>
+            <DialogTitle>Criar Ficha</DialogTitle>
             <DialogDescription>
               Selecione um cliente registrado e informe data e valor.
             </DialogDescription>

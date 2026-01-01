@@ -86,7 +86,10 @@ export default function Dashboard() {
       </div>
 
       <div className="flex justify-between">
-        <h1 className="font-bold text-2xl mb-3">Dashboard</h1>
+        <div className="flex items-center gap-2 mb-3">
+          <h1 className="font-bold text-2xl">Dashboard</h1>
+          {/* <p>select para dia </p> */}
+        </div>
 
         <div className="flex gap-2 text-black bg-">
           <CreateGroup>

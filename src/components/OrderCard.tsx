@@ -8,6 +8,7 @@ import { OptionsOrder } from './order/OptionsOrder'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { toast } from 'sonner'
 import { formatBRLFromCents } from '@/utils/moneyBRL'
+import { getHourOrder } from '@/utils/getHourOrder'
 
 const checkOrder = async ({
   orderId,
@@ -63,7 +64,7 @@ export const OrderCard = ({
     <div className="bg-[#2b2b2b] rounded-xl px-6 py-3">
       <div className="flex justify-between">
         <div className="flex gap-2">
-          <p className="font-bold">12:59</p>
+          <p className="font-bold">{getHourOrder(order.date)}</p>
           <p className="font-bold">-</p>
 
           <p className="font-bold">{formatBRLFromCents(orderTotalCents)}</p>
@@ -89,7 +90,7 @@ export const OrderCard = ({
         <p className="">{order.clientName}</p>
       </div>
 
-      <div className="grid grid-cols-3  mt-1 gap-2">
+      <div className="grid grid-cols-3 mt-1 gap-2">
         {order?.orderProducts?.map((orderProduct) => (
           <OrderProduct key={orderProduct.id} orderProduct={orderProduct} />
         ))}
